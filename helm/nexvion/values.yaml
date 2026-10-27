@@ -1,0 +1,78 @@
+replicaCount: 2
+
+image:
+  repository: nexvion-web
+  pullPolicy: IfNotPresent
+  tag: "1.0"
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: "nexvion-helm"
+
+serviceAccount:
+  create: false
+  automount: false
+
+podAnnotations: {}
+podLabels:
+  app: nexvion
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 101
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 8080
+  nodePort: 30081
+
+ingress:
+  enabled: false
+
+httpRoute:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+
+autoscaling:
+  enabled: false
+
+volumes:
+  - name: tmp
+    emptyDir:
+      sizeLimit: 64Mi
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
