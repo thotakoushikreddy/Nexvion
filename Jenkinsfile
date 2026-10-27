@@ -86,10 +86,13 @@ pipeline {
                 sh '''
                     set -eu
 
-                    READY=0
+                    echo "Checking application endpoints..."
 
+                    READY=0
                     for attempt in $(seq 1 20); do
-                        if curl -fsS http://127.0.0.1:${APP_PORT}/ >/dev/null; then
+                        if curl -fsS http://127.0.0.1:${APP_PORT}/ >/dev/null &&
+                           curl -fsS http://127.0.0.1:${APP_PORT}/products.html >/dev/null &&
+                           curl -fsS http://127.0.0.1:${APP_PORT}/payment.html >/dev/null; then
                             READY=1
                             break
                         fi
@@ -97,16 +100,36 @@ pipeline {
                     done
 
                     test "$READY" -eq 1
+                    echo "All application endpoints returned successfully."
 
-                    curl -fsS http://127.0.0.1:${APP_PORT}/products.html >/dev/null
-                    curl -fsS http://127.0.0.1:${APP_PORT}/payment.html >/dev/null
+                    echo "Waiting for container health..."
 
-                    STATUS=$(docker inspect ${CONTAINER_NAME} --format '{{.State.Health.Status}}')
+                    HEALTHY=0
+                    for attempt in $(seq 1 20); do
+                        STATUS=$(docker inspect ${CONTAINER_NAME} --format '{{.State.Health.Status}}')
 
-                    echo "Container health: $STATUS"
+                        echo "Health check attempt $attempt: $STATUS"
 
-                    test "$STATUS" = "healthy"
+                        if [ "$STATUS" = "healthy" ]; then
+                            HEALTHY=1
+                            break
+                        fi
 
+                        if [ "$STATUS" = "unhealthy" ]; then
+                            docker logs --tail 50 ${CONTAINER_NAME}
+                            exit 1
+                        fi
+
+                        sleep 3
+                    done
+
+                    if [ "$HEALTHY" -ne 1 ]; then
+                        echo "Container did not become healthy within the timeout."
+                        docker logs --tail 50 ${CONTAINER_NAME}
+                        exit 1
+                    fi
+
+                    echo "Container health: healthy"
                     echo "Docker deployment verification successful."
                 '''
             }
